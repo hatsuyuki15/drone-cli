@@ -7,7 +7,10 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
+	goruntime "runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/drone/envsubst"
@@ -265,6 +268,7 @@ func exec(c *cli.Context) error {
 	}
 	if c.Bool("clone") == false {
 		pwd, _ := os.Getwd()
+		pwd = standardizePath(pwd)
 		comp.WorkspaceMountFunc = compiler.MountHostWorkspace
 		comp.WorkspaceFunc = compiler.CreateHostWorkspace(pwd)
 	}
@@ -351,4 +355,22 @@ func toRegistry(items []string) []*engine.DockerAuth {
 func readParams(path string) map[string]string {
 	data, _ := godotenv.Read(path)
 	return data
+}
+
+func standardizePath(path string) string {
+	if goruntime.GOOS == "windows" {
+		path = convertPathForWindows(path)
+	}
+	return path
+}
+
+func convertPathForWindows(path string) string {
+	base := filepath.VolumeName(path)
+	if len(base) == 2 {
+		path = strings.TrimPrefix(path, base)
+		base = strings.ToLower(strings.TrimSuffix(base, ":"))
+		return "/" + base + filepath.ToSlash(path)
+	}
+
+	return filepath.ToSlash(path)
 }
